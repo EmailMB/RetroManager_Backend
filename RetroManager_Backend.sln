@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetroManager_Backend", "RetroManager_Backend\RetroManager_Backend.csproj", "{CE815B22-9F80-4C9B-A3C3-6A860684E3AC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CE815B22-9F80-4C9B-A3C3-6A860684E3AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE815B22-9F80-4C9B-A3C3-6A860684E3AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE815B22-9F80-4C9B-A3C3-6A860684E3AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE815B22-9F80-4C9B-A3C3-6A860684E3AC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
