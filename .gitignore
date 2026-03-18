@@ -6,3 +6,6 @@ riderModule.iml
 .idea/
 *.sln.iml
 *.user
+*.db
+*.db-shm
+*.db-wal
