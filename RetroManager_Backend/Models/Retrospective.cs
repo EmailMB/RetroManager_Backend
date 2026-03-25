@@ -26,9 +26,13 @@ public class Retrospective
     /// </summary>
     [Required]
     public DateTime Date { get; set; }
+    
+    /// <summary>
+    /// Private notes or summary created by the manager during the session.
+    /// </summary>
+    public string? ManagerNotes { get; set; }
 
     #region Foreign Keys
-
     /// <summary>
     /// ID of the project this retrospective belongs to.
     /// </summary>
@@ -40,11 +44,9 @@ public class Retrospective
     /// </summary>
     [Required]
     public int CreatedBy { get; set; }
-
     #endregion
 
     #region Audit Fields
-
     /// <summary>
     /// ID of the user who last updated the session details.
     /// </summary>
@@ -59,11 +61,9 @@ public class Retrospective
     /// Timestamp of the last update.
     /// </summary>
     public DateTime? UpdatedAt { get; set; }
-
     #endregion
 
     #region Navigation Properties
-
     /// <summary>
     /// The project associated with this session.
     /// </summary>

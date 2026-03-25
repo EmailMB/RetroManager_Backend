@@ -31,10 +31,4 @@ public class UserCreateDto
     [Required]
     [MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
     public string Password { get; set; } = string.Empty;
-
-    /// <summary>
-    /// The access level assigned to the user within the system.
-    /// Defaults to 'Member'.
-    /// </summary>
-    public UserRole Role { get; set; } = UserRole.Normal;
 }

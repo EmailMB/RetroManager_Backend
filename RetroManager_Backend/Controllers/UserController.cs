@@ -1,77 +1,46 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using RetroManager_Backend.Data;
+using System.Security.Claims;
 using RetroManager_Backend.DTOs;
-using RetroManager_Backend.Models;
+using RetroManager_Backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace RetroManager_Backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UserController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IUserService _userService;
 
-    public UserController(AppDbContext context)
+    public UserController(IUserService userService)
     {
-        _context = context;
-    }
-
-    /// <summary>
-    /// Registers a new user in the system.
-    /// </summary>
-    /// <param name="userDto">The user registration data.</param>
-    /// <returns>The created user details without the password.</returns>
-    [HttpPost("register")]
-    public async Task<ActionResult<UserResponseDto>> Register(UserCreateDto userDto)
-    {
-        // Check if email is already taken
-        if (await _context.Users.AnyAsync(u => u.Email == userDto.Email))
-        {
-            return BadRequest("Email is already registered.");
-        }
-
-        // Manual Mapping from DTO to Model
-        var user = new User
-        {
-            Name = userDto.Name,
-            Email = userDto.Email,
-            Password = userDto.Password, // Note: In production, hash this password!
-            Role = userDto.Role
-        };
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        // Manual Mapping from Model to Response DTO
-        var response = new UserResponseDto
-        {
-            UserId = user.Id,
-            Name = user.Name,
-            Email = user.Email,
-            Role = user.Role
-        };
-
-        return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, response);
+        _userService = userService;
     }
 
     /// <summary>
     /// Retrieves a list of all registered users.
     /// </summary>
-    /// <returns>A list of users (safe data only).</returns>
     [HttpGet]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetUsers()
     {
-        var users = await _context.Users
-            .Select(u => new UserResponseDto
-            {
-                UserId = u.Id,
-                Name = u.Name,
-                Email = u.Email,
-                Role = u.Role
-            })
-            .ToListAsync();
-
+        var users = await _userService.GetAllUsers();
         return Ok(users);
+    }
+
+    /// <summary>
+    /// Updates the role of a specific user. Admin only.
+    /// </summary>
+    [HttpPut("{id}/role")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateUserRole(int id, UpdateUserRoleDto dto)
+    {
+        var adminId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var success = await _userService.UpdateUserRole(id, dto, adminId);
+        if (!success)
+            return NotFound("User not found.");
+
+        return NoContent();
     }
 }

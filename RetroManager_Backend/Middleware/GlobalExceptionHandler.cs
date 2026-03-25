@@ -30,7 +30,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             Status = StatusCodes.Status500InternalServerError,
             Title = "Server Error",
             Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
-            Detail = exception.Message // In production, you might want a generic message here
+            Detail = "An unexpected error occurred. Please try again later."
         };
 
         // 3. Send the response back to the client

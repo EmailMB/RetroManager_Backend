@@ -6,17 +6,17 @@
 public enum UserRole
 {
     /// <summary>
-    /// Highest privilege level, can promote other users.
+    /// Standard user who participates in projects and retrospectives.
     /// </summary>
-    Admin = 1,
-
+    Normal = 0,
+    
     /// <summary>
     /// Can create and manage projects and retrospectives.
     /// </summary>
-    Manager = 2,
-
+    Manager = 1,
+    
     /// <summary>
-    /// Standard user who participates in projects and retrospectives.
+    /// Highest privilege level, can promote other users.
     /// </summary>
-    Normal = 3
+    Admin = 2,
 }
