@@ -42,4 +42,18 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<IEnumerable<UserResponseDto>> SearchByEmail(string email)
+    {
+        return await _context.Users
+            .Where(u => u.Email.ToLower().Contains(email.ToLower()))
+            .Select(u => new UserResponseDto
+            {
+                UserId = u.Id,
+                Name = u.Name,
+                Email = u.Email,
+                Role = u.Role
+            })
+            .ToListAsync();
+    }
 }

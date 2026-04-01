@@ -26,6 +26,11 @@ builder.Services.AddSwaggerGen();
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IRetrospectiveService, RetrospectiveService>();
+builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<IActionService, ActionService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
 // CORS
 builder.Services.AddCors(options =>

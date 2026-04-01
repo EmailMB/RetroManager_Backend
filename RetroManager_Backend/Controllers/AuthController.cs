@@ -27,7 +27,7 @@ public class AuthController : ControllerBase
         if (result == null)
             return BadRequest("Email is already registered.");
 
-        return CreatedAtAction(nameof(Register), result);
+        return Created(string.Empty, result);
     }
 
     /// <summary>
