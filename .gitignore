@@ -10,3 +10,4 @@ riderModule.iml
 *.db-shm
 *.db-wal
 **/appsettings.Development.json
+/RetroManager_Frontend/
