@@ -49,7 +49,7 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<string?> Login(LoginDto dto)
+    public async Task<LoginResponseDto?> Login(LoginDto dto)
     {
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == dto.Email);
@@ -57,7 +57,16 @@ public class AuthService : IAuthService
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
             return null;
 
-        return GenerateJwtToken(user);
+        // Return both the JWT token and the user's basic info so the frontend
+        // can store the session without needing a separate profile request.
+        return new LoginResponseDto
+        {
+            Token = GenerateJwtToken(user),
+            Id    = user.Id,
+            Name  = user.Name,
+            Email = user.Email,
+            Role  = (int)user.Role   // numeric: Normal=0, Manager=1, Admin=2
+        };
     }
 
     private string GenerateJwtToken(User user)

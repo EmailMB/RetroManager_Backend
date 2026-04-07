@@ -23,7 +23,7 @@ public class RetrospectivesController : BaseController
     /// Normal users can only access retrospectives from projects they belong to.
     /// ManagerNotes is hidden from Normal-role users.
     /// </summary>
-    [HttpGet("api/retrospectivas/{id}")]
+    [HttpGet("api/retrospectives/{id}")]
     public async Task<ActionResult<RetrospectiveResponseDto>> GetById(int id)
     {
         var (userId, role) = GetCaller();
@@ -39,29 +39,41 @@ public class RetrospectivesController : BaseController
     /// Creates a new retrospective under the given project. Manager and Admin only.
     /// Returns 404 if the project does not exist.
     /// </summary>
-    [HttpPost("api/projetos/{projetoId}/retrospectivas")]
+    [HttpPost("api/projects/{projectId}/retrospectives")]
     [Authorize(Roles = "Manager,Admin")]
-    public async Task<ActionResult<RetrospectiveResponseDto>> Create(int projetoId, RetrospectiveCreateDto dto)
+    public async Task<ActionResult<RetrospectiveResponseDto>> Create(int projectId, RetrospectiveCreateDto dto)
     {
         var (userId, _) = GetCaller();
 
-        var retro = await _retroService.Create(projetoId, dto, userId);
+        var retro = await _retroService.Create(projectId, dto, userId);
         if (retro == null)
             return NotFound("Project not found.");
 
         return CreatedAtAction(nameof(GetById), new { id = retro.Id }, retro);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET /api/retrospectivas/{retroId}/attendances  (RF14)
-    // Returns the attendance checklist for a retrospective.
-    // Any project member can view it.
-    // ──────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Partially updates a retrospective's title, date, and/or manager notes.
+    /// Manager and Admin only.
+    /// </summary>
+    [HttpPut("api/retrospectives/{id}")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<ActionResult<RetrospectiveResponseDto>> Update(int id, RetrospectiveUpdateDto dto)
+    {
+        var (_, role) = GetCaller();
+
+        var retro = await _retroService.Update(id, dto, role);
+        if (retro == null)
+            return NotFound("Retrospective not found.");
+
+        return Ok(retro);
+    }
+    
     /// <summary>
     /// Returns the full attendance list for the given retrospective.
     /// Normal users must be project members to access.
     /// </summary>
-    [HttpGet("api/retrospectivas/{retroId}/attendances")]
+    [HttpGet("api/retrospectives/{retroId}/attendances")]
     public async Task<ActionResult<IEnumerable<AttendanceResponseDto>>> GetAttendances(int retroId)
     {
         var (userId, role) = GetCaller();
@@ -73,17 +85,12 @@ public class RetrospectivesController : BaseController
         return Ok(records);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // PUT /api/retrospectivas/{retroId}/attendances/{userId}  (RF14)
-    // Manager marks or updates a member's presence.
-    // UpdatedBy is set to the Manager's ID.
-    // ──────────────────────────────────────────────────────────────
     /// <summary>
     /// Updates the presence status of a specific user in the retrospective (RF14).
     /// Manager and Admin only. Records the Manager's ID in UpdatedBy.
     /// Returns 404 if the attendance record does not exist.
     /// </summary>
-    [HttpPut("api/retrospectivas/{retroId}/attendances/{userId}")]
+    [HttpPut("api/retrospectives/{retroId}/attendances/{userId}")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<AttendanceResponseDto>> UpdateAttendance(int retroId, int userId, AttendanceUpdateDto dto)
     {

@@ -19,4 +19,10 @@ public interface IRetrospectiveService
     /// Returns null if the project does not exist.
     /// </summary>
     Task<RetrospectiveResponseDto?> Create(int projectId, RetrospectiveCreateDto dto, int creatorId);
+    
+    /// <summary>
+    /// Partially updates a retrospective's title, date, and/or manager notes.
+    /// Returns null if not found.
+    /// </summary>
+    Task<RetrospectiveResponseDto?> Update(int id, RetrospectiveUpdateDto dto, UserRole role);
 }

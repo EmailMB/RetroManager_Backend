@@ -31,16 +31,17 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Authenticates a user and returns a JWT token.
+    /// Authenticates a user and returns a JWT token alongside basic user info.
+    /// The role is returned as an integer (Normal=0, Manager=1, Admin=2).
     /// </summary>
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ActionResult<string>> Login(LoginDto dto)
+    public async Task<ActionResult<LoginResponseDto>> Login(LoginDto dto)
     {
-        var token = await _authService.Login(dto);
-        if (token == null)
+        var result = await _authService.Login(dto);
+        if (result == null)
             return Unauthorized("Invalid email or password.");
 
-        return Ok(new { token });
+        return Ok(result);
     }
 }

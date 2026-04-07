@@ -26,7 +26,7 @@ public class AcoesController : BaseController
     /// status, responsible user, project, retrospective, and description (RF25).
     /// Normal users only see actions from projects they belong to (RF24).
     /// </summary>
-    [HttpGet("api/acoes")]
+    [HttpGet("api/actions")]
     public async Task<ActionResult<IEnumerable<ActionResponseDto>>> GetAll([FromQuery] ActionFilterDto filter)
     {
         var (userId, role) = GetCaller();
@@ -43,14 +43,14 @@ public class AcoesController : BaseController
     /// Returns all action items for the specified retrospective.
     /// Normal users must be members of the associated project (RF24).
     /// </summary>
-    [HttpGet("api/retrospectivas/{retroId}/acoes")]
+    [HttpGet("api/retrospectives/{retroId}/actions")]
     public async Task<ActionResult<IEnumerable<ActionResponseDto>>> GetByRetroId(int retroId)
     {
         var (userId, role) = GetCaller();
 
         var actions = await _actionService.GetByRetroId(retroId, userId, role);
         if (actions == null)
-            return NotFound("Retrospetiva não encontrada ou acesso negado.");
+            return NotFound("Retrospective not found or access denied.");
 
         return Ok(actions);
     }
@@ -63,7 +63,7 @@ public class AcoesController : BaseController
     /// Creates a new action item in the specified retrospective and optionally
     /// assigns it to a Normal user (RF22). Manager and Admin only.
     /// </summary>
-    [HttpPost("api/retrospectivas/{retroId}/acoes")]
+    [HttpPost("api/retrospectives/{retroId}/actions")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<ActionResponseDto>> Create(int retroId, ActionCreateDto dto)
     {
@@ -73,7 +73,7 @@ public class AcoesController : BaseController
         {
             var action = await _actionService.Create(retroId, dto, userId);
             if (action == null)
-                return NotFound("Retrospetiva não encontrada.");
+                return NotFound("Retrospective not found.");
 
             return CreatedAtAction(
                 nameof(GetByRetroId),
@@ -95,7 +95,7 @@ public class AcoesController : BaseController
     /// Normal users may only update actions assigned to them.
     /// Manager/Admin may update any action.
     /// </summary>
-    [HttpPut("api/acoes/{id}/estado")]
+    [HttpPut("api/actions/{id}/status")]
     public async Task<ActionResult<ActionResponseDto>> UpdateStatus(int id, ActionUpdateStatusDto dto)
     {
         var (userId, role) = GetCaller();
@@ -104,7 +104,7 @@ public class AcoesController : BaseController
         {
             var action = await _actionService.UpdateStatus(id, dto, userId, role);
             if (action == null)
-                return NotFound("Ação não encontrada.");
+                return NotFound("Action not found.");
 
             return Ok(action);
         }

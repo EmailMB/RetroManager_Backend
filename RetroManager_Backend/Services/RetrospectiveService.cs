@@ -72,6 +72,25 @@ public class RetrospectiveService : IRetrospectiveService
         return MapToDto(retro, UserRole.Manager);
     }
 
+    public async Task<RetrospectiveResponseDto?> Update(int id, RetrospectiveUpdateDto dto, UserRole role)
+    {
+        var retro = await _context.Retrospectives
+            .Include(r => r.Project)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (retro == null) return null;
+
+        // Apply only the fields that were explicitly provided
+        if (dto.Title != null)        retro.Title        = dto.Title;
+        if (dto.Date.HasValue)        retro.Date         = dto.Date.Value;
+        if (dto.ManagerNotes != null) retro.ManagerNotes = dto.ManagerNotes;
+
+        retro.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return MapToDto(retro, role);
+    }
+    
     private static RetrospectiveResponseDto MapToDto(Retrospective r, UserRole role) => new()
     {
         Id = r.Id,

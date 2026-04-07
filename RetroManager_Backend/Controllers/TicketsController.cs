@@ -25,14 +25,14 @@ public class TicketsController : BaseController
     /// Normal users must be members of the associated project.
     /// Author identity is never included in the response (RF18).
     /// </summary>
-    [HttpGet("api/retrospectivas/{retroId}/tickets")]
+    [HttpGet("api/retrospectives/{retroId}/tickets")]
     public async Task<ActionResult<IEnumerable<TicketResponseDto>>> GetByRetroId(int retroId)
     {
         var (userId, role) = GetCaller();
 
         var tickets = await _ticketService.GetByRetroId(retroId, userId, role);
         if (tickets == null)
-            return NotFound("Retrospetiva não encontrada ou acesso negado.");
+            return NotFound("Retrospective not found or access denied.");
 
         return Ok(tickets);
     }
@@ -45,14 +45,14 @@ public class TicketsController : BaseController
     /// Creates a new anonymous ticket in the specified retrospective.
     /// The author ID is stored server-side and is never exposed (RF18).
     /// </summary>
-    [HttpPost("api/retrospectivas/{retroId}/tickets")]
+    [HttpPost("api/retrospectives/{retroId}/tickets")]
     public async Task<ActionResult<TicketResponseDto>> Create(int retroId, TicketCreateDto dto)
     {
         var (userId, _) = GetCaller();
 
         var ticket = await _ticketService.Create(retroId, dto, userId);
         if (ticket == null)
-            return NotFound("Retrospetiva não encontrada.");
+            return NotFound("Retrospective not found.");
 
         return CreatedAtAction(
             nameof(GetByRetroId),
@@ -77,7 +77,7 @@ public class TicketsController : BaseController
         {
             var ticket = await _ticketService.Update(id, dto, userId, role);
             if (ticket == null)
-                return NotFound("Ticket não encontrado.");
+                return NotFound("Ticket not found.");
 
             return Ok(ticket);
         }
@@ -104,7 +104,7 @@ public class TicketsController : BaseController
         {
             var deleted = await _ticketService.Delete(id, userId, role);
             if (!deleted)
-                return NotFound("Ticket não encontrado.");
+                return NotFound("Ticket not found.");
 
             return NoContent();
         }

@@ -6,7 +6,7 @@ using RetroManager_Backend.Services;
 namespace RetroManager_Backend.Controllers;
 
 [ApiController]
-[Route("api/projetos")]
+[Route("api/projects")]
 [Authorize]
 public class ProjetosController : BaseController
 {
@@ -81,7 +81,7 @@ public class ProjetosController : BaseController
     /// Adds a user as a member of a project. Manager and Admin only.
     /// Returns 409 Conflict if the user is already a member.
     /// </summary>
-    [HttpPost("{id}/membros/{userId}")]
+    [HttpPost("{id}/members/{userId}")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<IActionResult> AddMember(int id, int userId)
     {

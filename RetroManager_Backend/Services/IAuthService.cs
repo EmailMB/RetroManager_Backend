@@ -8,5 +8,5 @@ namespace RetroManager_Backend.Services;
 public interface IAuthService
 {
     Task<UserResponseDto?> Register(UserCreateDto dto);
-    Task<string?> Login(LoginDto dto);
+    Task<LoginResponseDto?> Login(LoginDto dto);
 }

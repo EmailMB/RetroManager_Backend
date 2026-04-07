@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace RetroManager_Backend.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/users")]
 [Authorize]
 public class UserController : BaseController
 {
@@ -47,7 +47,7 @@ public class UserController : BaseController
     /// Searches for users by email (partial, case-insensitive match).
     /// Used by Managers when adding members to a project.
     /// </summary>
-    [HttpGet("/api/utilizadores/pesquisa/{userEmail}")]
+    [HttpGet("search/{userEmail}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> SearchByEmail(string userEmail)
     {
