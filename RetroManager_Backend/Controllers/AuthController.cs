@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RetroManager_Backend.DTOs;
 using RetroManager_Backend.Services;
@@ -16,9 +16,6 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
-    /// <summary>
-    /// Registers a new user in the system.
-    /// </summary>
     [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<UserResponseDto>> Register(UserCreateDto dto)
@@ -30,18 +27,32 @@ public class AuthController : ControllerBase
         return Created(string.Empty, result);
     }
 
-    /// <summary>
-    /// Authenticates a user and returns a JWT token alongside basic user info.
-    /// The role is returned as an integer (Normal=0, Manager=1, Admin=2).
-    /// </summary>
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponseDto>> Login(LoginDto dto)
     {
         var result = await _authService.Login(dto);
-        if (result == null)
-            return Unauthorized("Invalid email or password.");
 
-        return Ok(result);
+        if (result.EmailNotVerified)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = result.Error, emailNotVerified = true });
+
+        if (result.Response == null)
+            return Unauthorized(result.Error ?? "Invalid credentials.");
+
+        return Ok(result.Response);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return BadRequest("Token em falta.");
+
+        var success = await _authService.VerifyEmail(token);
+        if (!success)
+            return BadRequest("Link de verificação inválido ou expirado.");
+
+        return Ok(new { message = "Email confirmado com sucesso." });
     }
 }

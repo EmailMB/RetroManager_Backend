@@ -1,8 +1,5 @@
 namespace RetroManager_Backend.DTOs;
 
-/// <summary>
-/// Full project response including members and retrospective summaries.
-/// </summary>
 public class ProjectResponseDto
 {
     public int Id { get; set; }
@@ -15,9 +12,6 @@ public class ProjectResponseDto
     public List<ProjectRetrospectiveSummaryDto> Retrospectives { get; set; } = new();
 }
 
-/// <summary>
-/// Lightweight user representation used inside project responses.
-/// </summary>
 public class ProjectMemberDto
 {
     public int UserId { get; set; }
@@ -25,9 +19,6 @@ public class ProjectMemberDto
     public string Email { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Lightweight retrospective summary used inside project responses.
-/// </summary>
 public class ProjectRetrospectiveSummaryDto
 {
     public int Id { get; set; }

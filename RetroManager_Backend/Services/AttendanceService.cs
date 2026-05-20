@@ -5,9 +5,6 @@ using RetroManager_Backend.Models.Enums;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Handles business logic for retrospective attendance management.
-/// </summary>
 public class AttendanceService : IAttendanceService
 {
     private readonly AppDbContext _context;
@@ -17,9 +14,6 @@ public class AttendanceService : IAttendanceService
         _context = context;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET full attendance list for a retrospective (RF14)
-    // ──────────────────────────────────────────────────────────────
     public async Task<IEnumerable<AttendanceResponseDto>?> GetByRetroId(int retroId, int userId, UserRole role)
     {
         var retro = await _context.Retrospectives
@@ -29,8 +23,7 @@ public class AttendanceService : IAttendanceService
 
         if (retro == null) return null;
 
-        // Normal users can only access retrospectives from their projects
-        if (role == UserRole.Normal && !retro.Project.Members.Any(m => m.Id == userId))
+        if (role != UserRole.Admin && !retro.Project.Members.Any(m => m.Id == userId))
             return null;
 
         var records = await _context.Attendances
@@ -42,10 +35,6 @@ public class AttendanceService : IAttendanceService
         return records.Select(MapToDto);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // UPDATE presence status for a specific user (RF14)
-    // UpdatedBy stores the Manager who made the change
-    // ──────────────────────────────────────────────────────────────
     public async Task<AttendanceResponseDto?> UpdateAttendance(int retroId, int userId, AttendanceUpdateDto dto, int managerId)
     {
         var record = await _context.Attendances
@@ -54,18 +43,15 @@ public class AttendanceService : IAttendanceService
 
         if (record == null) return null;
 
-        record.IsPresent  = dto.IsPresent;
-        record.UpdatedBy  = managerId;
-        record.UpdatedAt  = DateTime.UtcNow;
+        record.IsPresent = dto.IsPresent;
+        record.UpdatedBy = managerId;
+        record.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
         return MapToDto(record);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // Mapping helper
-    // ──────────────────────────────────────────────────────────────
     private static AttendanceResponseDto MapToDto(Models.RetrospectiveAttendance a) => new()
     {
         RetrospectiveId = a.RetrospectiveId,

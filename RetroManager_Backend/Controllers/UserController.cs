@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using RetroManager_Backend.DTOs;
 using RetroManager_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -17,9 +17,6 @@ public class UserController : BaseController
         _userService = userService;
     }
 
-    /// <summary>
-    /// Retrieves a list of all registered users.
-    /// </summary>
     [HttpGet]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetUsers()
@@ -28,30 +25,32 @@ public class UserController : BaseController
         return Ok(users);
     }
 
-    /// <summary>
-    /// Updates the role of a specific user. Admin only.
-    /// </summary>
-    [HttpPut("{id}/role")]
+    [HttpPut("{id:int}/role")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateUserRole(int id, UpdateUserRoleDto dto)
+    public async Task<IActionResult> UpdateUserRole([FromRoute] int id, [FromBody] UpdateUserRoleDto dto)
     {
         var (adminId, _) = GetCaller();
         var success = await _userService.UpdateUserRole(id, dto, adminId);
         if (!success)
-            return NotFound("User not found.");
+            return NotFound(new { message = "User not found.", searchedId = id });
 
         return NoContent();
     }
 
-    /// <summary>
-    /// Searches for users by email (partial, case-insensitive match).
-    /// Used by Managers when adding members to a project.
-    /// </summary>
     [HttpGet("search/{userEmail}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> SearchByEmail(string userEmail)
     {
         var users = await _userService.SearchByEmail(userEmail);
         return Ok(users);
+    }
+
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile(UpdateProfileDto dto)
+    {
+        var (userId, _) = GetCaller();
+        var (result, error) = await _userService.UpdateProfile(userId, dto);
+        if (error != null) return BadRequest(error);
+        return Ok(result);
     }
 }

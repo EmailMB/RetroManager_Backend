@@ -2,9 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RetroManager_Backend.DTOs;
 
-/// <summary>
-/// Payload for updating an existing project's name and description.
-/// </summary>
 public class ProjectUpdateDto
 {
     [Required]

@@ -1,12 +1,8 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace RetroManager_Backend.Middleware;
 
-/// <summary>
-/// Global interceptor for all unhandled exceptions.
-/// Ensures the API always returns a consistent JSON error format.
-/// </summary>
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
@@ -21,10 +17,8 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        // 1. Log the error for the developer (you!) to see in the console
-        _logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
+        _logger.LogError(exception, "Unhandled exception: {Message}", exception.Message);
 
-        // 2. Prepare the standard error response (ProblemDetails)
         var problemDetails = new ProblemDetails
         {
             Status = StatusCodes.Status500InternalServerError,
@@ -33,7 +27,6 @@ public class GlobalExceptionHandler : IExceptionHandler
             Detail = "An unexpected error occurred. Please try again later."
         };
 
-        // 3. Send the response back to the client
         httpContext.Response.StatusCode = problemDetails.Status.Value;
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 

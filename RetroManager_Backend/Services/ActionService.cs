@@ -6,21 +6,17 @@ using RetroManager_Backend.Models.Enums;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Handles business logic for retrospective action-item operations.
-/// </summary>
 public class ActionService : IActionService
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public ActionService(AppDbContext context)
+    public ActionService(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET all actions with optional filters (RF25)
-    // ──────────────────────────────────────────────────────────────
     public async Task<IEnumerable<ActionResponseDto>> GetAll(ActionFilterDto filter, int userId, UserRole role)
     {
         var query = _context.Actions
@@ -30,11 +26,9 @@ public class ActionService : IActionService
             .Include(a => a.ResponsibleUser)
             .AsQueryable();
 
-        // Normal users only see actions from their own projects
-        if (role == UserRole.Normal)
+        if (role != UserRole.Admin)
             query = query.Where(a => a.Retrospective.Project.Members.Any(m => m.Id == userId));
 
-        // Apply optional filters (RF25)
         if (filter.Status.HasValue)
             query = query.Where(a => a.Status == filter.Status.Value);
 
@@ -51,13 +45,9 @@ public class ActionService : IActionService
             query = query.Where(a => a.Description.ToLower().Contains(filter.Description.ToLower()));
 
         var actions = await query.OrderBy(a => a.CreatedAt).ToListAsync();
-
         return actions.Select(MapToDto);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET actions for a specific retrospective (RF24)
-    // ──────────────────────────────────────────────────────────────
     public async Task<IEnumerable<ActionResponseDto>?> GetByRetroId(int retroId, int userId, UserRole role)
     {
         var retro = await _context.Retrospectives
@@ -66,9 +56,7 @@ public class ActionService : IActionService
             .FirstOrDefaultAsync(r => r.Id == retroId);
 
         if (retro == null) return null;
-
-        // Normal users must be project members
-        if (role == UserRole.Normal && !retro.Project.Members.Any(m => m.Id == userId))
+        if (role != UserRole.Admin && !retro.Project.Members.Any(m => m.Id == userId))
             return null;
 
         var actions = await _context.Actions
@@ -82,9 +70,6 @@ public class ActionService : IActionService
         return actions.Select(MapToDto);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // CREATE action and assign to a Normal user (RF22)
-    // ──────────────────────────────────────────────────────────────
     public async Task<ActionResponseDto?> Create(int retroId, ActionCreateDto dto, int managerId)
     {
         var retro = await _context.Retrospectives
@@ -92,8 +77,8 @@ public class ActionService : IActionService
             .FirstOrDefaultAsync(r => r.Id == retroId);
 
         if (retro == null) return null;
+        if (retro.IsFrozen) throw new InvalidOperationException("Retrospectiva fechada — sem novas ações.");
 
-        // If a responsible user is specified, verify they exist
         if (dto.ResponsibleUserId.HasValue)
         {
             var responsible = await _context.Users.FindAsync(dto.ResponsibleUserId.Value);
@@ -103,28 +88,35 @@ public class ActionService : IActionService
 
         var action = new ActionItem
         {
-            Description       = dto.Description,
-            Status            = ActionStatus.Pending,
-            RetrospectiveId   = retroId,
-            ResponsibleUserId = dto.ResponsibleUserId,
-            CreatedAt         = DateTime.UtcNow
+            Description            = dto.Description,
+            Status                 = ActionStatus.Pending,
+            RetrospectiveId        = retroId,
+            ResponsibleUserId      = dto.ResponsibleUserId,
+            ExpectedCompletionDate = dto.ExpectedCompletionDate,
+            CreatedAt              = DateTime.UtcNow
         };
 
         _context.Actions.Add(action);
         await _context.SaveChangesAsync();
 
-        // Reload navigation properties for the response
         await _context.Entry(action).Reference(a => a.Retrospective).LoadAsync();
         await _context.Entry(action.Retrospective).Reference(r => r.Project).LoadAsync();
         if (action.ResponsibleUserId.HasValue)
             await _context.Entry(action).Reference(a => a.ResponsibleUser).LoadAsync();
 
+        if (action.ResponsibleUser != null)
+        {
+            _ = _emailService.SendActionAssignedEmail(
+                action.ResponsibleUser.Email,
+                action.ResponsibleUser.Name,
+                action,
+                action.Retrospective?.Project?.Name ?? "",
+                action.Retrospective?.Title ?? "");
+        }
+
         return MapToDto(action);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // UPDATE action status (RF23)
-    // ──────────────────────────────────────────────────────────────
     public async Task<ActionResponseDto?> UpdateStatus(int actionId, ActionUpdateStatusDto dto, int userId, UserRole role)
     {
         var action = await _context.Actions
@@ -135,34 +127,52 @@ public class ActionService : IActionService
 
         if (action == null) return null;
 
-        // Normal users may only update actions assigned to them
         if (role == UserRole.Normal && action.ResponsibleUserId != userId)
             throw new UnauthorizedAccessException("Só podes atualizar o estado das ações que te foram atribuídas.");
 
+        var wasComplete = action.Status == ActionStatus.Complete;
         action.Status    = dto.Status;
         action.UpdatedBy = userId;
         action.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        if (!string.IsNullOrWhiteSpace(dto.Notes))
+            action.Notes = dto.Notes;
 
+        // Marcar/desmarcar CompletedAt automaticamente
+        if (dto.Status == ActionStatus.Complete && !wasComplete)
+            action.CompletedAt = DateTime.UtcNow;
+        else if (dto.Status != ActionStatus.Complete && wasComplete)
+            action.CompletedAt = null;
+
+        await _context.SaveChangesAsync();
         return MapToDto(action);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // Mapping helper
-    // ──────────────────────────────────────────────────────────────
+    public async Task<bool> Delete(int actionId)
+    {
+        var action = await _context.Actions.FindAsync(actionId);
+        if (action == null) return false;
+
+        _context.Actions.Remove(action);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     private static ActionResponseDto MapToDto(ActionItem a) => new()
     {
-        Id                  = a.Id,
-        Description         = a.Description,
-        Status              = a.Status,
-        RetrospectiveId     = a.RetrospectiveId,
-        RetrospectiveTitle  = a.Retrospective?.Title,
-        ProjectId           = a.Retrospective?.ProjectId ?? 0,
-        ProjectName         = a.Retrospective?.Project?.Name,
-        ResponsibleUserId   = a.ResponsibleUserId,
-        ResponsibleUserName = a.ResponsibleUser?.Name,
-        CreatedAt           = a.CreatedAt,
-        UpdatedAt           = a.UpdatedAt
+        Id                     = a.Id,
+        Description            = a.Description,
+        Status                 = a.Status,
+        RetrospectiveId        = a.RetrospectiveId,
+        RetrospectiveTitle     = a.Retrospective?.Title,
+        ProjectId              = a.Retrospective?.ProjectId ?? 0,
+        ProjectName            = a.Retrospective?.Project?.Name,
+        ResponsibleUserId      = a.ResponsibleUserId,
+        ResponsibleUserName    = a.ResponsibleUser?.Name,
+        ExpectedCompletionDate = a.ExpectedCompletionDate,
+        CompletedAt            = a.CompletedAt,
+        Notes                  = a.Notes,
+        CreatedAt              = a.CreatedAt,
+        UpdatedAt              = a.UpdatedAt
     };
 }

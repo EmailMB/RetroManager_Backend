@@ -6,16 +6,15 @@ using RetroManager_Backend.Models.Enums;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Handles business logic for retrospective sessions.
-/// </summary>
 public class RetrospectiveService : IRetrospectiveService
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public RetrospectiveService(AppDbContext context)
+    public RetrospectiveService(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     public async Task<RetrospectiveResponseDto?> GetById(int id, int userId, UserRole role)
@@ -27,8 +26,7 @@ public class RetrospectiveService : IRetrospectiveService
 
         if (retro == null) return null;
 
-        // Normal users can only view retrospectives from projects they belong to
-        if (role == UserRole.Normal && !retro.Project.Members.Any(m => m.Id == userId))
+        if (role != UserRole.Admin && !retro.Project.Members.Any(m => m.Id == userId))
             return null;
 
         return MapToDto(retro, role);
@@ -54,21 +52,35 @@ public class RetrospectiveService : IRetrospectiveService
         _context.Retrospectives.Add(retro);
         await _context.SaveChangesAsync();
 
-        // Auto-create an attendance record (IsPresent = false) for every project member
+        if (dto.TemplateId.HasValue)
+        {
+            var template = await _context.RetroTemplates
+                .Include(t => t.Columns.OrderBy(c => c.DisplayOrder))
+                .FirstOrDefaultAsync(t => t.Id == dto.TemplateId.Value &&
+                                         (t.IsGlobal || t.CreatedBy == creatorId));
+            if (template != null)
+            {
+                _context.RetroColumns.AddRange(template.Columns.Select(c => new RetroColumn
+                {
+                    RetrospectiveId = retro.Id,
+                    Name            = c.Name,
+                    Color           = c.Color,
+                    DisplayOrder    = c.DisplayOrder
+                }));
+            }
+        }
+
         var attendanceRecords = project.Members.Select(m => new RetrospectiveAttendance
         {
             RetrospectiveId = retro.Id,
             UserId          = m.Id,
             IsPresent       = false
         });
-
         _context.Attendances.AddRange(attendanceRecords);
+
         await _context.SaveChangesAsync();
 
-        // Load the project navigation property for the response
         await _context.Entry(retro).Reference(r => r.Project).LoadAsync();
-
-        // Creator is always Manager/Admin, so all fields are visible
         return MapToDto(retro, UserRole.Manager);
     }
 
@@ -79,8 +91,8 @@ public class RetrospectiveService : IRetrospectiveService
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (retro == null) return null;
+        if (retro.IsFrozen) throw new InvalidOperationException("Retrospectiva fechada — sem edições.");
 
-        // Apply only the fields that were explicitly provided
         if (dto.Title != null)        retro.Title        = dto.Title;
         if (dto.Date.HasValue)        retro.Date         = dto.Date.Value;
         if (dto.ManagerNotes != null) retro.ManagerNotes = dto.ManagerNotes;
@@ -90,7 +102,29 @@ public class RetrospectiveService : IRetrospectiveService
 
         return MapToDto(retro, role);
     }
-    
+
+    public async Task<RetrospectiveResponseDto?> SetFrozen(int id, bool frozen)
+    {
+        var retro = await _context.Retrospectives
+            .Include(r => r.Project)
+                .ThenInclude(p => p.Members)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (retro == null) return null;
+
+        var wasFrozen = retro.IsFrozen;
+        retro.IsFrozen  = frozen;
+        retro.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        if (frozen && !wasFrozen)
+        {
+            var emails = retro.Project?.Members?.Select(m => m.Email).ToList() ?? new List<string>();
+            _ = _emailService.SendRetrospectiveClosedEmail(emails, retro.Title, retro.Project?.Name ?? "");
+        }
+
+        return MapToDto(retro, UserRole.Manager);
+    }
+
     private static RetrospectiveResponseDto MapToDto(Retrospective r, UserRole role) => new()
     {
         Id = r.Id,
@@ -101,7 +135,7 @@ public class RetrospectiveService : IRetrospectiveService
         CreatedBy = r.CreatedBy,
         CreatedAt = r.CreatedAt,
         UpdatedAt = r.UpdatedAt,
-        // ManagerNotes is hidden from Normal users
-        ManagerNotes = role == UserRole.Normal ? null : r.ManagerNotes
+        ManagerNotes = role == UserRole.Normal ? null : r.ManagerNotes,
+        IsFrozen = r.IsFrozen
     };
 }

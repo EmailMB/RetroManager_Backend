@@ -2,9 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RetroManager_Backend.DTOs;
 
-/// <summary>
-/// Payload for creating a new retrospective session under a project.
-/// </summary>
 public class RetrospectiveCreateDto
 {
     [Required]
@@ -13,4 +10,6 @@ public class RetrospectiveCreateDto
 
     [Required]
     public DateTime Date { get; set; }
+
+    public int? TemplateId { get; set; }
 }

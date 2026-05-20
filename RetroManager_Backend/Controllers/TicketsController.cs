@@ -16,20 +16,10 @@ public class TicketsController : BaseController
         _ticketService = ticketService;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET /api/retrospectivas/{retroId}/tickets  (RF17)
-    // Any participant can view all tickets of a retrospective.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Returns all tickets for the specified retrospective.
-    /// Normal users must be members of the associated project.
-    /// Author identity is never included in the response (RF18).
-    /// </summary>
     [HttpGet("api/retrospectives/{retroId}/tickets")]
     public async Task<ActionResult<IEnumerable<TicketResponseDto>>> GetByRetroId(int retroId)
     {
         var (userId, role) = GetCaller();
-
         var tickets = await _ticketService.GetByRetroId(retroId, userId, role);
         if (tickets == null)
             return NotFound("Retrospective not found or access denied.");
@@ -37,37 +27,29 @@ public class TicketsController : BaseController
         return Ok(tickets);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // POST /api/retrospectivas/{retroId}/tickets  (RF18, RF20)
-    // Any authenticated user creates an anonymous ticket.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Creates a new anonymous ticket in the specified retrospective.
-    /// The author ID is stored server-side and is never exposed (RF18).
-    /// </summary>
     [HttpPost("api/retrospectives/{retroId}/tickets")]
     public async Task<ActionResult<TicketResponseDto>> Create(int retroId, TicketCreateDto dto)
     {
-        var (userId, _) = GetCaller();
+        var (userId, role) = GetCaller();
 
-        var ticket = await _ticketService.Create(retroId, dto, userId);
-        if (ticket == null)
-            return NotFound("Retrospective not found.");
+        try
+        {
+            var ticket = await _ticketService.Create(retroId, dto, userId, role);
+            if (ticket == null)
+                return NotFound("Retrospective not found.");
 
-        return CreatedAtAction(
-            nameof(GetByRetroId),
-            new { retroId },
-            ticket);
+            return CreatedAtAction(nameof(GetByRetroId), new { retroId }, ticket);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // PUT /api/tickets/{id}  (RF19)
-    // Normal users edit only their own; Manager/Admin edit any.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Updates the content and category of a ticket.
-    /// Normal users may only edit tickets they created (RF19).
-    /// </summary>
     [HttpPut("api/tickets/{id}")]
     public async Task<ActionResult<TicketResponseDto>> Update(int id, TicketUpdateDto dto)
     {
@@ -85,16 +67,28 @@ public class TicketsController : BaseController
         {
             return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // DELETE /api/tickets/{id}  (RF21)
-    // Normal users remove only their own; Manager/Admin remove any.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Removes a ticket from the retrospective board (RF21).
-    /// Normal users may only delete their own tickets.
-    /// </summary>
+    [HttpPost("api/tickets/{id}/vote")]
+    public async Task<ActionResult<TicketResponseDto>> ToggleVote(int id)
+    {
+        var (userId, role) = GetCaller();
+        try
+        {
+            var ticket = await _ticketService.ToggleVote(id, userId, role);
+            if (ticket == null) return NotFound("Ticket not found.");
+            return Ok(ticket);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpDelete("api/tickets/{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -112,6 +106,9 @@ public class TicketsController : BaseController
         {
             return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
-
 }

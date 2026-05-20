@@ -2,9 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RetroManager_Backend.DTOs;
 
-/// <summary>
-/// Payload for creating a new project.
-/// </summary>
 public class ProjectCreateDto
 {
     [Required]

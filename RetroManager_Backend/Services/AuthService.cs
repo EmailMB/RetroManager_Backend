@@ -1,5 +1,6 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -10,63 +11,126 @@ using RetroManager_Backend.Models.Enums;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Handles authentication logic including registration, login and token generation.
-/// </summary>
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IEmailService _emailService;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService)
     {
         _context = context;
         _configuration = configuration;
+        _emailService = emailService;
     }
 
     public async Task<UserResponseDto?> Register(UserCreateDto dto)
     {
-        if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        var requireVerification = _configuration.GetValue<bool>("EmailSettings:RequireVerification");
+
+        var existing = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+        if (existing != null && existing.EmailVerified)
             return null;
 
-        var user = new User
-        {
-            Name = dto.Name,
-            Email = dto.Email,
-            Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            Role = UserRole.Normal
-        };
+        var hashedPwd = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        User user;
+        if (existing != null)
+        {
+            user = existing;
+            user.Name = dto.Name;
+            user.Password = hashedPwd;
+        }
+        else
+        {
+            user = new User
+            {
+                Name = dto.Name,
+                Email = dto.Email,
+                Password = hashedPwd,
+                Role = UserRole.Normal
+            };
+            _context.Users.Add(user);
+        }
+
+        if (requireVerification)
+        {
+            var token = GenerateSecureToken();
+            user.EmailVerified = false;
+            user.EmailVerificationToken = token;
+            user.EmailVerificationTokenExpiresAt = DateTime.UtcNow.AddHours(48);
+
+            await _context.SaveChangesAsync();
+            _ = _emailService.SendVerificationEmail(user.Email, user.Name, token);
+        }
+        else
+        {
+            user.EmailVerified = true;
+            user.EmailVerificationToken = null;
+            user.EmailVerificationTokenExpiresAt = null;
+
+            await _context.SaveChangesAsync();
+        }
 
         return new UserResponseDto
         {
             UserId = user.Id,
             Name = user.Name,
             Email = user.Email,
-            Role = user.Role
+            Role = user.Role,
+            EmailVerified = user.EmailVerified
         };
     }
 
-    public async Task<LoginResponseDto?> Login(LoginDto dto)
+    public async Task<LoginResult> Login(LoginDto dto)
     {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == dto.Email);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
-            return null;
+            return new LoginResult { Error = "Email ou password inválidos." };
 
-        // Return both the JWT token and the user's basic info so the frontend
-        // can store the session without needing a separate profile request.
-        return new LoginResponseDto
+        if (!user.EmailVerified)
+            return new LoginResult { EmailNotVerified = true, Error = "Confirma o teu email antes de fazer login." };
+
+        return new LoginResult
         {
-            Token = GenerateJwtToken(user),
-            Id    = user.Id,
-            Name  = user.Name,
-            Email = user.Email,
-            Role  = (int)user.Role   // numeric: Normal=0, Manager=1, Admin=2
+            Response = new LoginResponseDto
+            {
+                Token = GenerateJwtToken(user),
+                Id    = user.Id,
+                Name  = user.Name,
+                Email = user.Email,
+                Role  = (int)user.Role
+            }
         };
+    }
+
+    public async Task<bool> VerifyEmail(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.EmailVerificationToken == token);
+        if (user == null)
+            return false;
+
+        if (user.EmailVerificationTokenExpiresAt.HasValue &&
+            user.EmailVerificationTokenExpiresAt.Value < DateTime.UtcNow)
+            return false;
+
+        user.EmailVerified = true;
+        user.EmailVerificationToken = null;
+        user.EmailVerificationTokenExpiresAt = null;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private static string GenerateSecureToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .Replace("+", "-").Replace("/", "_").Replace("=", "");
     }
 
     private string GenerateJwtToken(User user)

@@ -16,38 +16,18 @@ public class AcoesController : BaseController
         _actionService = actionService;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET /api/acoes  (RF24, RF25)
-    // All authenticated users may query actions with optional filters.
-    // Normal users are automatically scoped to their own projects.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Returns all accessible action items, with optional filtering by
-    /// status, responsible user, project, retrospective, and description (RF25).
-    /// Normal users only see actions from projects they belong to (RF24).
-    /// </summary>
     [HttpGet("api/actions")]
     public async Task<ActionResult<IEnumerable<ActionResponseDto>>> GetAll([FromQuery] ActionFilterDto filter)
     {
         var (userId, role) = GetCaller();
-
         var actions = await _actionService.GetAll(filter, userId, role);
         return Ok(actions);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // GET /api/retrospectivas/{retroId}/acoes  (RF24)
-    // Any participant can view all actions of a retrospective.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Returns all action items for the specified retrospective.
-    /// Normal users must be members of the associated project (RF24).
-    /// </summary>
     [HttpGet("api/retrospectives/{retroId}/actions")]
     public async Task<ActionResult<IEnumerable<ActionResponseDto>>> GetByRetroId(int retroId)
     {
         var (userId, role) = GetCaller();
-
         var actions = await _actionService.GetByRetroId(retroId, userId, role);
         if (actions == null)
             return NotFound("Retrospective not found or access denied.");
@@ -55,14 +35,6 @@ public class AcoesController : BaseController
         return Ok(actions);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // POST /api/retrospectivas/{retroId}/acoes  (RF22)
-    // Manager/Admin create actions and assign them to Normal users.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Creates a new action item in the specified retrospective and optionally
-    /// assigns it to a Normal user (RF22). Manager and Admin only.
-    /// </summary>
     [HttpPost("api/retrospectives/{retroId}/actions")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<ActionResponseDto>> Create(int retroId, ActionCreateDto dto)
@@ -75,26 +47,18 @@ public class AcoesController : BaseController
             if (action == null)
                 return NotFound("Retrospective not found.");
 
-            return CreatedAtAction(
-                nameof(GetByRetroId),
-                new { retroId },
-                action);
+            return CreatedAtAction(nameof(GetByRetroId), new { retroId }, action);
         }
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // PUT /api/acoes/{id}/estado  (RF23)
-    // Normal users update only their own assigned actions.
-    // ──────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Updates the execution status of an action item (RF23).
-    /// Normal users may only update actions assigned to them.
-    /// Manager/Admin may update any action.
-    /// </summary>
     [HttpPut("api/actions/{id}/status")]
     public async Task<ActionResult<ActionResponseDto>> UpdateStatus(int id, ActionUpdateStatusDto dto)
     {
@@ -114,4 +78,14 @@ public class AcoesController : BaseController
         }
     }
 
+    [HttpDelete("api/actions/{id}")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var success = await _actionService.Delete(id);
+        if (!success)
+            return NotFound("Action not found.");
+
+        return NoContent();
+    }
 }

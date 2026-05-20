@@ -6,16 +6,15 @@ using RetroManager_Backend.Models.Enums;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Handles business logic for project management.
-/// </summary>
 public class ProjectService : IProjectService
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public ProjectService(AppDbContext context)
+    public ProjectService(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     public async Task<IEnumerable<ProjectResponseDto>> GetAll(int userId, UserRole role)
@@ -25,8 +24,7 @@ public class ProjectService : IProjectService
             .Include(p => p.Retrospectives)
             .AsQueryable();
 
-        // Normal users only see projects they are a member of
-        if (role == UserRole.Normal)
+        if (role != UserRole.Admin)
             query = query.Where(p => p.Members.Any(m => m.Id == userId));
 
         var projects = await query.ToListAsync();
@@ -42,8 +40,7 @@ public class ProjectService : IProjectService
 
         if (project == null) return null;
 
-        // Normal users cannot see projects they are not a member of
-        if (role == UserRole.Normal && !project.Members.Any(m => m.Id == userId))
+        if (role != UserRole.Admin && !project.Members.Any(m => m.Id == userId))
             return null;
 
         return MapToDto(project);
@@ -61,13 +58,11 @@ public class ProjectService : IProjectService
             CreatedAt = DateTime.UtcNow
         };
 
-        // Auto-add creator as a member
         project.Members.Add(creator!);
 
         _context.Projects.Add(project);
         await _context.SaveChangesAsync();
 
-        // Reload navigation properties so the response is fully populated
         await _context.Entry(project).Collection(p => p.Members).LoadAsync();
         await _context.Entry(project).Collection(p => p.Retrospectives).LoadAsync();
 
@@ -105,7 +100,26 @@ public class ProjectService : IProjectService
         project.Members.Add(user);
         await _context.SaveChangesAsync();
 
+        _ = _emailService.SendAddedToProjectEmail(user.Email, user.Name, project.Name);
+
         return AddMemberResult.Success;
+    }
+
+    public async Task<RemoveMemberResult> RemoveMember(int projectId, int userId)
+    {
+        var project = await _context.Projects
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
+        if (project == null) return RemoveMemberResult.ProjectNotFound;
+
+        var user = project.Members.FirstOrDefault(m => m.Id == userId);
+        if (user == null) return RemoveMemberResult.NotAMember;
+
+        project.Members.Remove(user);
+        await _context.SaveChangesAsync();
+
+        return RemoveMemberResult.Success;
     }
 
     private static ProjectResponseDto MapToDto(Project p) => new()

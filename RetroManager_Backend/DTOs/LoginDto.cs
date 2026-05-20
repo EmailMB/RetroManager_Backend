@@ -1,10 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RetroManager_Backend.DTOs;
 
-/// <summary>
-/// Data transfer object for user login.
-/// </summary>
 public class LoginDto
 {
     [Required]

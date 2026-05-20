@@ -17,29 +17,18 @@ public class ProjetosController : BaseController
         _projectService = projectService;
     }
 
-    /// <summary>
-    /// Returns all projects accessible to the current user.
-    /// Normal users only see projects they are a member of.
-    /// Managers and Admins see all projects.
-    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProjectResponseDto>>> GetAll()
     {
         var (userId, role) = GetCaller();
-
         var projects = await _projectService.GetAll(userId, role);
         return Ok(projects);
     }
 
-    /// <summary>
-    /// Returns a specific project by ID.
-    /// Normal users can only access projects they are a member of.
-    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<ProjectResponseDto>> GetById(int id)
     {
         var (userId, role) = GetCaller();
-
         var project = await _projectService.GetById(id, userId, role);
         if (project == null)
             return NotFound("Project not found or access denied.");
@@ -47,29 +36,20 @@ public class ProjetosController : BaseController
         return Ok(project);
     }
 
-    /// <summary>
-    /// Creates a new project. Manager and Admin only.
-    /// The creator is automatically added as a member.
-    /// </summary>
     [HttpPost]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<ProjectResponseDto>> Create(ProjectCreateDto dto)
     {
         var (userId, _) = GetCaller();
-
         var project = await _projectService.Create(dto, userId);
         return CreatedAtAction(nameof(GetById), new { id = project.Id }, project);
     }
 
-    /// <summary>
-    /// Updates an existing project's name and description. Manager and Admin only.
-    /// </summary>
     [HttpPut("{id}")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<IActionResult> Update(int id, ProjectUpdateDto dto)
     {
         var (userId, _) = GetCaller();
-
         var success = await _projectService.Update(id, dto, userId);
         if (!success)
             return NotFound("Project not found.");
@@ -77,10 +57,6 @@ public class ProjetosController : BaseController
         return NoContent();
     }
 
-    /// <summary>
-    /// Adds a user as a member of a project. Manager and Admin only.
-    /// Returns 409 Conflict if the user is already a member.
-    /// </summary>
     [HttpPost("{id}/members/{userId}")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<IActionResult> AddMember(int id, int userId)
@@ -93,6 +69,21 @@ public class ProjetosController : BaseController
             AddMemberResult.ProjectNotFound => NotFound("Project not found."),
             AddMemberResult.UserNotFound => NotFound("User not found."),
             AddMemberResult.AlreadyMember => Conflict("User is already a member of this project."),
+            _ => StatusCode(500)
+        };
+    }
+
+    [HttpDelete("{id}/members/{userId}")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<IActionResult> RemoveMember(int id, int userId)
+    {
+        var result = await _projectService.RemoveMember(id, userId);
+
+        return result switch
+        {
+            RemoveMemberResult.Success => NoContent(),
+            RemoveMemberResult.ProjectNotFound => NotFound("Project not found."),
+            RemoveMemberResult.NotAMember => NotFound("User is not a member of this project."),
             _ => StatusCode(500)
         };
     }

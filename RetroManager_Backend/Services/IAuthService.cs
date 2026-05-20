@@ -1,12 +1,17 @@
-﻿using RetroManager_Backend.DTOs;
+using RetroManager_Backend.DTOs;
 
 namespace RetroManager_Backend.Services;
 
-/// <summary>
-/// Defines authentication operations for the application.
-/// </summary>
 public interface IAuthService
 {
     Task<UserResponseDto?> Register(UserCreateDto dto);
-    Task<LoginResponseDto?> Login(LoginDto dto);
+    Task<LoginResult> Login(LoginDto dto);
+    Task<bool> VerifyEmail(string token);
+}
+
+public class LoginResult
+{
+    public LoginResponseDto? Response { get; set; }
+    public string? Error { get; set; }
+    public bool EmailNotVerified { get; set; }
 }
