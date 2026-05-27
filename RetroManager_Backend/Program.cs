@@ -31,11 +31,14 @@ builder.Services.AddScoped<IRetroColumnService, RetroColumnService>();
 builder.Services.AddScoped<IRetroTemplateService, RetroTemplateService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5173" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -61,6 +64,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     });
 
 var app = builder.Build();
+
+// Cria a pasta da base de dados SQLite se não existir (ex: /home/data no Azure)
+var connString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrEmpty(connString) && connString.Contains("Data Source="))
+{
+    var dbPath = connString.Split("Data Source=")[1].Split(';')[0].Trim();
+    var dbDir = Path.GetDirectoryName(dbPath);
+    if (!string.IsNullOrEmpty(dbDir) && !Directory.Exists(dbDir))
+        Directory.CreateDirectory(dbDir);
+}
 
 // Garantir que o schema da DB existe (cria tabelas em falta na primeira execução)
 using (var scope = app.Services.CreateScope())
@@ -114,10 +127,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Servir a SPA: qualquer rota não-API devolve o index.html (routing do React)
+app.MapFallbackToFile("index.html");
 
 app.Run();

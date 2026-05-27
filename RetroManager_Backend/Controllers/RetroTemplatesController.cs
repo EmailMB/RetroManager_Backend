@@ -35,6 +35,7 @@ public class RetroTemplatesController : BaseController
     }
 
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<RetroTemplateResponseDto>> Create(RetroTemplateCreateDto dto)
     {
         var (userId, role) = GetCaller();
@@ -43,6 +44,7 @@ public class RetroTemplatesController : BaseController
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<RetroTemplateResponseDto>> Update(int id, RetroTemplateUpdateDto dto)
     {
         var (userId, role) = GetCaller();
@@ -52,6 +54,7 @@ public class RetroTemplatesController : BaseController
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Manager,Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var (userId, role) = GetCaller();
