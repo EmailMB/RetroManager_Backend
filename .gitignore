@@ -6,8 +6,13 @@ riderModule.iml
 .idea/
 *.sln.iml
 *.user
-*.db
 *.db-shm
 *.db-wal
 **/appsettings.Development.json
 /RetroManager_Frontend/
+
+/RetroManager_Backend/node_modules/
+/RetroManager_Backend/package.json
+/RetroManager_Backend/package-lock.json
+
+identifier.sqlite

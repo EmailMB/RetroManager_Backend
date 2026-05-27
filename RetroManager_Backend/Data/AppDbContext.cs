@@ -30,16 +30,18 @@ public class AppDbContext : DbContext
             .WithMany()
             .UsingEntity(j => j.ToTable("project_user"));
 
-        modelBuilder.Entity<Project>()
-            .HasOne(p => p.Creator)
-            .WithMany(u => u.CreatedProjects)
-            .HasForeignKey(p => p.CreatedBy)
-            .OnDelete(DeleteBehavior.Restrict);
-
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
 
+        modelBuilder.Entity<TicketVote>()
+            .HasKey(v => new { v.TicketId, v.UserId });
+
+        // SQL Server não permite múltiplos caminhos de cascade — desativar em todas as FKs...
+        foreach (var fk in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
+            fk.DeleteBehavior = DeleteBehavior.Restrict;
+
+        // ...e reativar apenas na hierarquia que a app usa para apagar
         modelBuilder.Entity<RetroColumn>()
             .HasOne(c => c.Retrospective)
             .WithMany(r => r.Columns)
@@ -52,19 +54,16 @@ public class AppDbContext : DbContext
             .HasForeignKey(t => t.RetroColumnId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<RetroTemplateColumn>()
-            .HasOne(c => c.Template)
-            .WithMany(t => t.Columns)
-            .HasForeignKey(c => c.TemplateId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<TicketVote>()
-            .HasKey(v => new { v.TicketId, v.UserId });
-
         modelBuilder.Entity<TicketVote>()
             .HasOne(v => v.Ticket)
             .WithMany(t => t.Votes)
             .HasForeignKey(v => v.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RetroTemplateColumn>()
+            .HasOne(c => c.Template)
+            .WithMany(t => t.Columns)
+            .HasForeignKey(c => c.TemplateId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
