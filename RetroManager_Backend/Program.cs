@@ -10,8 +10,16 @@ using RetroManager_Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
+var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+        options.UseSqlServer(dbConnection);
+    else
+        options.UseSqlite(dbConnection);
+});
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -66,10 +74,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 var app = builder.Build();
 
 // Cria a pasta da base de dados SQLite se não existir (ex: /home/data no Azure)
-var connString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (!string.IsNullOrEmpty(connString) && connString.Contains("Data Source="))
+if (dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase) &&
+    !string.IsNullOrEmpty(dbConnection) && dbConnection.Contains("Data Source="))
 {
-    var dbPath = connString.Split("Data Source=")[1].Split(';')[0].Trim();
+    var dbPath = dbConnection.Split("Data Source=")[1].Split(';')[0].Trim();
     var dbDir = Path.GetDirectoryName(dbPath);
     if (!string.IsNullOrEmpty(dbDir) && !Directory.Exists(dbDir))
         Directory.CreateDirectory(dbDir);
