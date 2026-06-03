@@ -30,6 +30,11 @@ public class AppDbContext : DbContext
             .WithMany()
             .UsingEntity(j => j.ToTable("project_user"));
 
+        modelBuilder.Entity<Project>()
+            .HasOne(p => p.Creator)
+            .WithMany(u => u.CreatedProjects)
+            .HasForeignKey(p => p.CreatedBy);
+
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
