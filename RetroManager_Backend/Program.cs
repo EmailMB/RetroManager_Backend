@@ -16,7 +16,10 @@ var dbConnection = builder.Configuration.GetConnectionString("DefaultConnection"
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
-        options.UseSqlServer(dbConnection);
+        options.UseSqlServer(dbConnection, sql => sql.EnableRetryOnFailure(
+            maxRetryCount: 6,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null));
     else
         options.UseSqlite(dbConnection);
 });
