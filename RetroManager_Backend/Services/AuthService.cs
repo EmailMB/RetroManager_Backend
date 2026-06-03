@@ -90,7 +90,8 @@ public class AuthService : IAuthService
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
             return new LoginResult { Error = "Email ou password inválidos." };
 
-        if (!user.EmailVerified)
+        var requireVerification = _configuration.GetValue<bool>("EmailSettings:RequireVerification");
+        if (requireVerification && !user.EmailVerified)
             return new LoginResult { EmailNotVerified = true, Error = "Confirma o teu email antes de fazer login." };
 
         return new LoginResult
