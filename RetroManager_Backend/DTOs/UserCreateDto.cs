@@ -13,6 +13,6 @@ public class UserCreateDto
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    [MinLength(6, ErrorMessage = "Password must be at least 6 characters long.")]
+    [MinLength(6, ErrorMessage = "A password tem de ter pelo menos 6 caracteres.")]
     public string Password { get; set; } = string.Empty;
 }
